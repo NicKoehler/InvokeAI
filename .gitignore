@@ -214,8 +214,13 @@ configs/models.yaml
 
 # weights (will be created by installer)
 models/ldm/stable-diffusion-v1/*.ckpt
+models/bert-base-uncased
+models/realesrgan
+models/codeformer
 models/clipseg
+models/CompVis
 models/gfpgan
+models/openai
 
 # ignore initfile
 invokeai.init
