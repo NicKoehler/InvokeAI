@@ -45,6 +45,9 @@ class Buttons:
                         f"🔮 Sampler: {sd.sampler_name}", callback_data="sampler"
                     ),
                 ],
+                [
+                    InlineKeyboardButton(f"🪴 Reset seed: {sd.seed if sd.seed else '🎲'}", callback_data="seed"),
+                ],
                 Buttons.close(),
             ]
         )

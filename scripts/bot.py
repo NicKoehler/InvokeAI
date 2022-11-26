@@ -6,11 +6,10 @@ from os import environ
 from io import BytesIO
 from dotenv import load_dotenv
 from bot_buttons import Buttons
+from ldm.generate import Generate
 from aiogram import Bot, Dispatcher, executor
 from aiogram.dispatcher.filters import IDFilter, Text
 from aiogram.types import CallbackQuery, InputFile, InputMediaPhoto, Message
-
-from ldm.generate import Generate
 
 load_dotenv()
 nest_asyncio.apply()
@@ -131,6 +130,7 @@ async def generate_image(message: Message, prompt: str):
         "scale": sd.cfg_scale,
         "sampler": sd.sampler_name,
         "iterations": sd.iterations,
+        "seed": sd.seed,
     }
 
     status_message = await message.reply(
@@ -140,9 +140,8 @@ async def generate_image(message: Message, prompt: str):
 
     sd.prompt2image(
         prompt,
-        step_callback=make_step_callback(message, sd.steps)
-        if user_state["show_preview"]
-        else None,
+        seed=sd.seed,
+        step_callback=make_step_callback(message, sd.steps) if user_state["show_preview"] else None,
         image_callback=make_image_callback(message, status_message, current_settings),
     )
 
@@ -159,8 +158,9 @@ async def send_welcome(message: Message):
     """
     await message.reply(
         "Ciao sono Stable Diffusion Bot.\n\n"
-        "Genera immagini con /genera [PROMPT]\n"
-        "Regola i settaggi con /impostazioni"
+        "· Genera immagini con /genera &lt;prompt&gt;\n"
+        "· Regola i settaggi con /impostazioni\n"
+        "· Imposta il seed semplicemente digitando un numero"
     )
 
 
@@ -185,13 +185,22 @@ async def send_image(message: Message):
     args = message.get_args()
 
     if not args:
-        await message.reply("utilizza /genera <prompt>")
+        await message.reply(
+            "Utilizza il comando /genera seguito da un prompt, per esempio:\n"
+            "<code>/genera a horse in the moon</code>"
+        )
         return
 
     # clean up the prompt
     prompt = args.replace("\n", "")
 
     await generate_image(message, prompt)
+
+
+@dp.message_handler(IDFilter(user_id=OWNER_ID), lambda m: m.text.isnumeric())
+async def set_seed(message: Message):
+    sd.seed = int(message.text)
+    await message.reply(f"Seed impostato su <code>{sd.seed}</code>") 
 
 
 @dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="close"))
@@ -221,6 +230,7 @@ async def callback_genera(callback: CallbackQuery):
 @dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="model"))
 @dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="sampler"))
 @dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="preview"))
+@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="seed"))
 async def callback_settings(callback: CallbackQuery):
     match callback.data:
         case "iterations":
@@ -238,8 +248,19 @@ async def callback_settings(callback: CallbackQuery):
         case "sampler":
             keyboard = Buttons.sampler(sd.sampler_name)
             text = "🔮 Selezione il sampler"
+        case "seed":
+            if sd.seed:
+                sd.seed = None
+                await callback.answer("Seed resettato")
+                await callback.message.edit_reply_markup(
+                    Buttons.settings_buttons(sd, user_state["show_preview"])
+                )
+            else:
+                await callback.answer("Il seed è già casuale")
+            return
         case "preview":
             user_state["show_preview"] = not user_state["show_preview"]
+            await callback.answer("Anteprima abilitata" if  user_state["show_preview"] else "Anteprima disabilitata")
             await callback.message.edit_reply_markup(
                 Buttons.settings_buttons(sd, user_state["show_preview"])
             )
