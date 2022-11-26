@@ -98,7 +98,7 @@ def make_image_callback(message, status_message, s):
                     f"Cfg Scale: <code>{s['scale']}</code>\n"
                     f"Sampler: <code>{s['sampler']}</code>\n"
                     f"seed <code>{seed}</code>",
-                    reply_markup=Buttons.generate_keyboard()
+                    reply_markup=Buttons.generate_keyboard(),
                 )
             )
         user_state["num_gen"] += 1
@@ -141,7 +141,9 @@ async def generate_image(message: Message, prompt: str):
     sd.prompt2image(
         prompt,
         seed=sd.seed,
-        step_callback=make_step_callback(message, sd.steps) if user_state["show_preview"] else None,
+        step_callback=make_step_callback(message, sd.steps)
+        if user_state["show_preview"]
+        else None,
         image_callback=make_image_callback(message, status_message, current_settings),
     )
 
@@ -200,7 +202,7 @@ async def send_image(message: Message):
 @dp.message_handler(IDFilter(user_id=OWNER_ID), lambda m: m.text.isnumeric())
 async def set_seed(message: Message):
     sd.seed = int(message.text)
-    await message.reply(f"Seed impostato su <code>{sd.seed}</code>") 
+    await message.reply(f"Seed impostato su <code>{sd.seed}</code>")
 
 
 @dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="close"))
@@ -260,7 +262,11 @@ async def callback_settings(callback: CallbackQuery):
             return
         case "preview":
             user_state["show_preview"] = not user_state["show_preview"]
-            await callback.answer("Anteprima abilitata" if  user_state["show_preview"] else "Anteprima disabilitata")
+            await callback.answer(
+                "Anteprima abilitata"
+                if user_state["show_preview"]
+                else "Anteprima disabilitata"
+            )
             await callback.message.edit_reply_markup(
                 Buttons.settings_buttons(sd, user_state["show_preview"])
             )

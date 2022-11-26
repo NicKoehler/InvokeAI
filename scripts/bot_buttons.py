@@ -14,7 +14,13 @@ class Buttons:
     @staticmethod
     def generate_keyboard():
         return InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="🔁 Genera con questo prompt", callback_data="genera")]]
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🔁 Genera con questo prompt", callback_data="genera"
+                    )
+                ]
+            ]
         )
 
     @staticmethod
@@ -46,7 +52,10 @@ class Buttons:
                     ),
                 ],
                 [
-                    InlineKeyboardButton(f"🪴 Reset seed: {sd.seed if sd.seed else '🎲'}", callback_data="seed"),
+                    InlineKeyboardButton(
+                        f"🪴 Reset seed: {sd.seed if sd.seed else '🎲'}",
+                        callback_data="seed",
+                    ),
                 ],
                 Buttons.close(),
             ]
