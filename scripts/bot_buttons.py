@@ -14,7 +14,7 @@ class Buttons:
     @staticmethod
     def generate_keyboard():
         return InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="🔁 Genera utilizzando il prompt", callback_data="genera")]]
+            inline_keyboard=[[InlineKeyboardButton(text="🔁 Genera con questo prompt", callback_data="genera")]]
         )
 
     @staticmethod
@@ -23,26 +23,26 @@ class Buttons:
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        f"Modello: {sd.model_name}", callback_data="model"
+                        f"👤 Modello: {sd.model_name}", callback_data="model"
                     ),
                 ],
                 [
                     InlineKeyboardButton(
-                        f"Immagini da generare: {sd.iterations}",
+                        f"🔢 Immagini da generare: {sd.iterations}",
                         callback_data="iterations",
                     ),
                     InlineKeyboardButton(
-                        f"Mostra anteprima: {'✅' if preview else '❌'}",
+                        f"🌄 Mostra anteprima: {'✅' if preview else '❌'}",
                         callback_data="preview",
                     ),
                 ],
                 [
-                    InlineKeyboardButton(f"Steps: {sd.steps}", callback_data="steps"),
+                    InlineKeyboardButton(f"👣 Steps: {sd.steps}", callback_data="steps"),
                     InlineKeyboardButton(
-                        f"Cfg scale: {sd.cfg_scale}", callback_data="scale"
+                        f"📏 Cfg scale: {sd.cfg_scale}", callback_data="scale"
                     ),
                     InlineKeyboardButton(
-                        f"Sampler: {sd.sampler_name}", callback_data="sampler"
+                        f"🔮 Sampler: {sd.sampler_name}", callback_data="sampler"
                     ),
                 ],
                 Buttons.close(),

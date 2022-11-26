@@ -225,19 +225,19 @@ async def callback_settings(callback: CallbackQuery):
     match callback.data:
         case "iterations":
             keyboard = Buttons.iterations(sd.iterations)
-            text = "Immagini da generare"
+            text = "🔢 Immagini da generare"
         case "steps":
             keyboard = Buttons.steps(sd.steps)
-            text = "Steps"
+            text = "👣 Steps"
         case "scale":
             keyboard = Buttons.scale(sd.cfg_scale)
-            text = "Cfg scale"
+            text = "📏 Cfg scale"
         case "model":
             keyboard = Buttons.model(config, sd.model_name)
-            text = "Seleziona il modello"
+            text = "👤 Seleziona il modello"
         case "sampler":
             keyboard = Buttons.sampler(sd.sampler_name)
-            text = "Selezione il sampler"
+            text = "🔮 Selezione il sampler"
         case "preview":
             user_state["show_preview"] = not user_state["show_preview"]
             await callback.message.edit_reply_markup(
@@ -260,15 +260,15 @@ async def callback_handler(callback: CallbackQuery):
         case "iterations":
             sd.iterations = int(value)
             keyboard = Buttons.iterations(sd.iterations)
-            text = "Immagini da generare"
+            text = "🔢 Immagini da generare"
         case "steps":
             sd.steps = int(value)
             keyboard = Buttons.steps(sd.steps)
-            text = "Steps"
+            text = "👣 Steps"
         case "scale":
             sd.cfg_scale = float(value)
             keyboard = Buttons.scale(sd.cfg_scale)
-            text = "Cfg scale"
+            text = "📏 Cfg scale"
         case "model":
             m = await callback.message.edit_text(
                 "Cambiare il modello richiede un po' di tempo, attendi"
@@ -281,12 +281,12 @@ async def callback_handler(callback: CallbackQuery):
 
             keyboard = Buttons.model(config, sd.model_name)
 
-            text = "Seleziona il modello"
+            text = "👤 Seleziona il modello"
         case "sampler":
             sd.sampler_name = value
             sd._set_sampler()
             keyboard = Buttons.sampler(sd.sampler_name)
-            text = "Selezione il sampler"
+            text = "🔮 Selezione il sampler"
 
     await callback.message.edit_text(text, reply_markup=keyboard)
 
