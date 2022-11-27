@@ -85,7 +85,7 @@ def make_step_callback(message: Message, total):
 
 
 def make_image_callback(message, status_message, s):
-    def callback(image, seed, first_seed=None):
+    def callback(image, seed, first_seed=s["seed"]):
         loop = asyncio.get_event_loop()
         with BytesIO() as buf:
             image.save(buf, "png")
@@ -141,9 +141,11 @@ async def generate_image(message: Message, prompt: str):
     sd.prompt2image(
         prompt,
         seed=sd.seed,
-        step_callback=make_step_callback(message, sd.steps)
-        if user_state["show_preview"]
-        else None,
+        step_callback=(
+            make_step_callback(message, sd.steps)
+            if user_state["show_preview"]
+            else None
+        ),
         image_callback=make_image_callback(message, status_message, current_settings),
     )
 
