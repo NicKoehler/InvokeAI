@@ -2,11 +2,13 @@ import yaml
 import asyncio
 import logging
 import nest_asyncio
-from os import environ
 from io import BytesIO
+from os import environ, path
 from dotenv import load_dotenv
 from bot_buttons import Buttons
+from ldm.invoke.args import Args
 from ldm.generate import Generate
+from ldm.invoke.globals import Globals
 from aiogram import Bot, Dispatcher, executor
 from aiogram.dispatcher.filters import IDFilter, Text
 from aiogram.types import CallbackQuery, InputFile, InputMediaPhoto, Message
@@ -34,18 +36,20 @@ Bot.set_current(bot)
 dp = Dispatcher(bot=bot)
 Dispatcher.set_current(dp)
 
+args = Args().parse_args()
+
+Globals.root = path.expanduser(args.root_dir or environ.get('INVOKEAI_ROOT') or path.abspath('.'))
+
+print(f'>> InvokeAI runtime directory is "{Globals.root}"')
+conf = path.normpath(path.join(Globals.root,"configs/models.yaml"))
+
 # Initialize stable diffusion generator
-with open("configs/models.yaml") as f:
+with open(conf) as f:
     config = yaml.safe_load(f)
 
-sd = Generate(max_loaded_models=1)
+sd = Generate(conf=conf, max_loaded_models=1)
 sd.iterations = DEFAULT_ITERATIONS
-
-for model in config:
-    if config.get(model).get("default"):
-        sd.set_model(model)
-        break
-
+sd.load_model()
 
 def make_step_callback(message: Message, total):
     def callback(img, step):
