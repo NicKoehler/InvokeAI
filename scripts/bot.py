@@ -182,7 +182,7 @@ async def send_welcome(message: Message):
     """
     await message.reply(
         "Ciao sono Stable Diffusion Bot.\n\n"
-        "· Genera immagini semplicemente digitando un prompt"
+        "· Genera immagini semplicemente digitando un prompt\n"
         "· Imposta il seed semplicemente digitando un numero",
         reply_markup=Buttons.default(sd, user_state["show_preview"]),
     )
@@ -267,7 +267,6 @@ async def cancel(message: Message):
 async def setting_handler(message: Message):
 
     value = message.text.rstrip(" ✅")
-    print(value)
     match user_state["setting"]:
         case "🔢":
             if value.isnumeric():
