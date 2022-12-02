@@ -258,7 +258,7 @@ async def callback_settings(callback: CallbackQuery):
             text = "👤 Seleziona il modello"
         case "sampler":
             keyboard = Buttons.sampler(sd.sampler_name)
-            text = "🔮 Selezione il sampler"
+            text = "🔮 Seleziona il sampler"
         case "seed":
             if sd.seed:
                 sd.seed = None
