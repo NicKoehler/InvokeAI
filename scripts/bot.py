@@ -318,7 +318,10 @@ async def setting_handler(message: Message):
 @dp.message_handler(IDFilter(user_id=OWNER_ID), lambda m: m.text.isnumeric())
 async def set_seed(message: Message):
     sd.seed = int(message.text)
-    await message.reply(f"Seed impostato su <code>{sd.seed}</code>")
+    await message.reply(
+        f"Seed impostato su <code>{sd.seed}</code>",
+        reply_markup=Buttons.default(sd, user_state["show_preview"])
+    )
 
 
 @dp.message_handler(IDFilter(user_id=OWNER_ID))
