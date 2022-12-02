@@ -182,8 +182,7 @@ async def send_welcome(message: Message):
     """
     await message.reply(
         "Ciao sono Stable Diffusion Bot.\n\n"
-        "· Genera immagini con /genera &lt;prompt&gt;\n"
-        "· Regola i settaggi con /impostazioni\n"
+        "· Genera immagini semplicemente digitando un prompt"
         "· Imposta il seed semplicemente digitando un numero",
         reply_markup=Buttons.default(sd, user_state["show_preview"]),
     )
