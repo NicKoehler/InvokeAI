@@ -16,15 +16,30 @@ from aiogram.types import CallbackQuery, InputFile, InputMediaPhoto, Message
 load_dotenv()
 nest_asyncio.apply()
 
+SAMPLERS = (
+    "plms",
+    "ddim",
+    "k_dpm_2_a",
+    "k_dpm_2",
+    "k_dpmpp_2_a",
+    "k_dpmpp_2",
+    "k_euler_a",
+    "k_euler",
+    "k_heun",
+    "k_lms",
+)
+
 BOT_TOKEN = environ.get("BOT_TOKEN")
 OWNER_ID = int(environ.get("OWNER_ID"))
 DEFAULT_ITERATIONS = int(environ.get("DEFAULT_ITERATIONS"))
 DEFAULT_PREVIEW = environ.get("DEFAULT_PREVIEW").lower() == "true"
+STEPS_UPDATE_PREVIEW = int(environ.get("STEPS_UPDATE_PREVIEW"))
 
 user_state = {
     "show_preview": DEFAULT_PREVIEW,
     "is_generating": False,
     "num_gen": 1,
+    "setting": None,
 }
 
 # Configure logging
@@ -32,9 +47,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
 bot = Bot(token=BOT_TOKEN, parse_mode="html")
-Bot.set_current(bot)
 dp = Dispatcher(bot=bot)
-Dispatcher.set_current(dp)
 
 args = Args().parse_args()
 
@@ -74,7 +87,7 @@ def make_step_callback(message: Message, total):
         elif step + 1 == total:
             loop.run_until_complete(message.delete())
 
-        elif step % 5 == 0:
+        elif step % STEPS_UPDATE_PREVIEW == 0:
             image = sd.sample_to_image(img)
             with BytesIO() as buf:
                 image.save(buf, "PNG")
@@ -171,7 +184,8 @@ async def send_welcome(message: Message):
         "Ciao sono Stable Diffusion Bot.\n\n"
         "· Genera immagini con /genera &lt;prompt&gt;\n"
         "· Regola i settaggi con /impostazioni\n"
-        "· Imposta il seed semplicemente digitando un numero"
+        "· Imposta il seed semplicemente digitando un numero",
+        reply_markup=Buttons.default(sd, user_state["show_preview"]),
     )
 
 
@@ -184,28 +198,123 @@ async def send_settings(message: Message):
     )
 
 
-@dp.message_handler(IDFilter(user_id=OWNER_ID), commands=["genera"])
-async def send_image(message: Message):
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="👤"))
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="🔢"))
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="🌄"))
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="👣"))
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="📏"))
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="🔮"))
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="🪴"))
+async def message_settings(message: Message):
+    char = message.text[0]
+    match char:
+        case "👤":
+            user_state["setting"] = char
+            keyboard = Buttons.model(config, sd.model_name)
+            text = "👤 Seleziona il modello"
+        case "🔢":
+            user_state["setting"] = char
+            keyboard = Buttons.iterations(sd.iterations)
+            text = "🔢 Immagini da generare"
+        case "👣":
+            user_state["setting"] = char
+            keyboard = Buttons.steps(sd.steps)
+            text = "👣 Steps"
+        case "📏":
+            user_state["setting"] = char
+            keyboard = Buttons.scale(sd.cfg_scale)
+            text = "📏 Cfg scale"
+        case "🔮":
+            user_state["setting"] = char
+            keyboard = Buttons.sampler(sd.sampler_name, SAMPLERS)
+            text = "🔮 Seleziona il sampler"
+        case "🪴":
+            if sd.seed:
+                sd.seed = None
+                await message.reply(
+                    "Seed resettato",
+                    reply_markup=Buttons.default(sd, user_state["show_preview"]),
+                )
+            else:
+                await message.reply("Il seed è già casuale")
+            return
+        case "🌄":
+            user_state["show_preview"] = not user_state["show_preview"]
+            await message.reply(
+                "Anteprima abilitata"
+                if user_state["show_preview"]
+                else "Anteprima disabilitata",
+                reply_markup=Buttons.default(sd, user_state["show_preview"]),
+            )
+            return
 
-    if user_state["is_generating"]:
+    await message.reply(text, reply_markup=keyboard)
+
+
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="❌"))
+async def cancel(message: Message):
+
+    if user_state["setting"]:
+        user_state["setting"] = None
         await message.reply(
-            "Non puoi generare immagini mentre ne stai già generando altre, attendi"
+            "Operazione annullata.",
+            reply_markup=Buttons.default(sd, user_state["show_preview"]),
         )
-        return
 
-    args = message.get_args()
 
-    if not args:
-        await message.reply(
-            "Utilizza il comando /genera seguito da un prompt, per esempio:\n"
-            "<code>/genera a horse in the moon</code>"
-        )
-        return
+@dp.message_handler(
+    IDFilter(user_id=OWNER_ID), lambda _: user_state["setting"] is not None
+)
+async def setting_handler(message: Message):
 
-    # clean up the prompt
-    prompt = args.replace("\n", "")
+    value = message.text.rstrip(" ✅")
+    print(value)
+    match user_state["setting"]:
+        case "🔢":
+            if value.isnumeric():
+                sd.iterations = int(value)
+                text = f"🔢 Immagini da generare impostate a <b>{sd.iterations}</b>"
+            else:
+                text = "Valore per immagini da generare non valido"
+        case "👣":
+            if value.isnumeric():
+                sd.steps = int(value)
+                text = f"👣 Steps impostati a <b>{sd.steps}</b>"
+            else:
+                text = "Valore per steps non valido"
+        case "📏":
+            try:
+                sd.cfg_scale = float(value)
+                text = f"📏 Cfg scale impostato a <b>{sd.cfg_scale}</b>"
+            except ValueError:
+                text = "Valore per scale non valido"
+        case "👤":
+            if value == sd.model_name:
+                text = "Nulla da cambiare"
+            elif value not in config.keys():
+                text = "Modello non valido, riprova"
+            else:
+                m = await message.reply(
+                    "Cambiare il modello richiede un po' di tempo, attendi"
+                )
+                await m.pin()
+                sd.set_model(value)
+                text = f"👤 Modello impostato su <b>{sd.model_name}</b>"
+                await message.unpin()
+        case "🔮":
 
-    await generate_image(message, prompt)
+            if value not in SAMPLERS:
+                text = "Sampler non valido, riprova"
+            else:
+                sd.sampler_name = value
+                sd._set_sampler()
+                text = f"🔮 Sampler impostato su <b>{sd.sampler_name}</b>"
+
+    user_state["setting"] = None
+
+    await message.reply(
+        text, reply_markup=Buttons.default(sd, user_state["show_preview"])
+    )
 
 
 @dp.message_handler(IDFilter(user_id=OWNER_ID), lambda m: m.text.isnumeric())
@@ -214,18 +323,19 @@ async def set_seed(message: Message):
     await message.reply(f"Seed impostato su <code>{sd.seed}</code>")
 
 
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="close"))
-async def delete_message(callback: CallbackQuery):
-    await callback.message.delete()
+@dp.message_handler(IDFilter(user_id=OWNER_ID))
+async def send_image(message: Message):
 
+    if user_state["is_generating"]:
+        await message.reply(
+            "Non puoi generare immagini mentre ne stai già generando altre, attendi"
+        )
+        return
 
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="back"))
-async def callback_back(callback: CallbackQuery):
+    # clean up the prompt
+    prompt = message.text.replace("\n", "")
 
-    await callback.message.edit_text(
-        "Impostazioni",
-        reply_markup=Buttons.settings_buttons(sd, user_state["show_preview"]),
-    )
+    await generate_image(message, prompt)
 
 
 @dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="genera"))
@@ -235,100 +345,12 @@ async def callback_genera(callback: CallbackQuery):
     await generate_image(callback.message, prompt)
 
 
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="iterations"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="steps"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="scale"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="model"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="sampler"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="preview"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="seed"))
-async def callback_settings(callback: CallbackQuery):
-    match callback.data:
-        case "iterations":
-            keyboard = Buttons.iterations(sd.iterations)
-            text = "🔢 Immagini da generare"
-        case "steps":
-            keyboard = Buttons.steps(sd.steps)
-            text = "👣 Steps"
-        case "scale":
-            keyboard = Buttons.scale(sd.cfg_scale)
-            text = "📏 Cfg scale"
-        case "model":
-            keyboard = Buttons.model(config, sd.model_name)
-            text = "👤 Seleziona il modello"
-        case "sampler":
-            keyboard = Buttons.sampler(sd.sampler_name)
-            text = "🔮 Seleziona il sampler"
-        case "seed":
-            if sd.seed:
-                sd.seed = None
-                await callback.answer("Seed resettato")
-                await callback.message.edit_reply_markup(
-                    Buttons.settings_buttons(sd, user_state["show_preview"])
-                )
-            else:
-                await callback.answer("Il seed è già casuale")
-            return
-        case "preview":
-            user_state["show_preview"] = not user_state["show_preview"]
-            await callback.answer(
-                "Anteprima abilitata"
-                if user_state["show_preview"]
-                else "Anteprima disabilitata"
-            )
-            await callback.message.edit_reply_markup(
-                Buttons.settings_buttons(sd, user_state["show_preview"])
-            )
-            return
-
-    await callback.message.edit_text(text, reply_markup=keyboard)
-
-
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(startswith="iterations|"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(startswith="steps|"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(startswith="scale|"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(startswith="model|"))
-@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(startswith="sampler|"))
-async def callback_handler(callback: CallbackQuery):
-
-    setting, value = callback.data.split("|")
-    match setting:
-        case "iterations":
-            sd.iterations = int(value)
-            keyboard = Buttons.iterations(sd.iterations)
-            text = "🔢 Immagini da generare"
-        case "steps":
-            sd.steps = int(value)
-            keyboard = Buttons.steps(sd.steps)
-            text = "👣 Steps"
-        case "scale":
-            sd.cfg_scale = float(value)
-            keyboard = Buttons.scale(sd.cfg_scale)
-            text = "📏 Cfg scale"
-        case "model":
-            m = await callback.message.edit_text(
-                "Cambiare il modello richiede un po' di tempo, attendi"
-            )
-            await m.pin()
-
-            sd.set_model(value)
-
-            await m.unpin()
-
-            keyboard = Buttons.model(config, sd.model_name)
-
-            text = "👤 Seleziona il modello"
-        case "sampler":
-            sd.sampler_name = value
-            sd._set_sampler()
-            keyboard = Buttons.sampler(sd.sampler_name)
-            text = "🔮 Selezione il sampler"
-
-    await callback.message.edit_text(text, reply_markup=keyboard)
-
-
 async def ready(_):
-    await bot.send_message(OWNER_ID, "Bot pronto")
+    await bot.send_message(
+        OWNER_ID,
+        "Bot pronto",
+        reply_markup=Buttons.default(sd, user_state["show_preview"]),
+    )
 
 
 if __name__ == "__main__":
