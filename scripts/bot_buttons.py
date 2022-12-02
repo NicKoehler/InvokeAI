@@ -3,7 +3,6 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
     ReplyKeyboardMarkup,
-    KeyboardButton,
 )
 
 
@@ -24,6 +23,12 @@ class Buttons:
             ],
             resize_keyboard=True,
             one_time_keyboard=False,
+        )
+
+    @staticmethod
+    def inline_cancel():
+        return InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton("❌", callback_data="cancel")]]
         )
 
     @staticmethod

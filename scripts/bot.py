@@ -3,6 +3,7 @@ import asyncio
 import logging
 import nest_asyncio
 from io import BytesIO
+from threading import Event
 from os import environ, path
 from dotenv import load_dotenv
 from bot_buttons import Buttons
@@ -11,6 +12,7 @@ from ldm.generate import Generate
 from ldm.invoke.globals import Globals
 from aiogram import Bot, Dispatcher, executor
 from aiogram.dispatcher.filters import IDFilter, Text
+from backend.invoke_ai_web_server import CanceledException
 from aiogram.types import CallbackQuery, InputFile, InputMediaPhoto, Message
 
 load_dotenv()
@@ -40,6 +42,7 @@ user_state = {
     "is_generating": False,
     "num_gen": 1,
     "setting": None,
+    "canceled": Event(),
 }
 
 # Configure logging
@@ -67,10 +70,19 @@ sd.iterations = DEFAULT_ITERATIONS
 sd.load_model()
 
 
+def check_cancel(*_):
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(asyncio.sleep(0.0001))
+    if user_state["canceled"].is_set():
+        user_state["canceled"].clear()
+        raise CanceledException
+    return loop
+
+
 def make_step_callback(message: Message, total):
     def callback(img, step):
         nonlocal message
-        loop = asyncio.get_event_loop()
+        loop = check_cancel()
         if step == 0:
             image = sd.sample_to_image(img)
             with BytesIO() as buf:
@@ -124,7 +136,8 @@ def make_image_callback(message, status_message, s):
         user_state["num_gen"] += 1
         loop.run_until_complete(
             status_message.edit_text(
-                f"🔄 Generazione in corso {user_state['num_gen']}/{s['iterations']}"
+                f"🔄 Generazione in corso {user_state['num_gen']}/{s['iterations']}",
+                reply_markup=Buttons.inline_cancel(),
             )
         )
 
@@ -154,25 +167,30 @@ async def generate_image(message: Message, prompt: str):
     }
 
     status_message = await message.reply(
-        f"🔄 Generazione in corso {user_state['num_gen']}/{current_settings['iterations']}"
+        f"🔄 Generazione in corso {user_state['num_gen']}/{current_settings['iterations']}",
+        reply_markup=Buttons.inline_cancel(),
     )
     await status_message.pin()
-
-    sd.prompt2image(
-        prompt,
-        seed=sd.seed,
-        step_callback=(
-            make_step_callback(message, sd.steps)
-            if user_state["show_preview"]
-            else None
-        ),
-        image_callback=make_image_callback(message, status_message, current_settings),
-    )
-
-    user_state["is_generating"] = False
-    user_state["num_gen"] = 1
-    await status_message.unpin()
-    await status_message.delete()
+    try:
+        sd.prompt2image(
+            prompt,
+            seed=sd.seed,
+            step_callback=(
+                make_step_callback(message, sd.steps)
+                if user_state["show_preview"]
+                else check_cancel
+            ),
+            image_callback=make_image_callback(
+                message, status_message, current_settings
+            ),
+        )
+    except CanceledException:
+        pass
+    finally:
+        user_state["is_generating"] = False
+        user_state["num_gen"] = 1
+        await status_message.unpin()
+        await status_message.delete()
 
 
 @dp.message_handler(IDFilter(user_id=OWNER_ID), commands=["start", "help"])
@@ -320,7 +338,7 @@ async def set_seed(message: Message):
     sd.seed = int(message.text)
     await message.reply(
         f"Seed impostato su <code>{sd.seed}</code>",
-        reply_markup=Buttons.default(sd, user_state["show_preview"])
+        reply_markup=Buttons.default(sd, user_state["show_preview"]),
     )
 
 
@@ -344,6 +362,12 @@ async def callback_genera(callback: CallbackQuery):
     text = callback.message.caption
     prompt = text.splitlines()[0][8:]
     await generate_image(callback.message, prompt)
+
+
+@dp.callback_query_handler(IDFilter(user_id=OWNER_ID), Text(equals="cancel"))
+async def callback_cancel(callback: CallbackQuery):
+    user_state["canceled"].set()
+    await bot.send_message(OWNER_ID, "Generazione annullata")
 
 
 async def ready(_):
