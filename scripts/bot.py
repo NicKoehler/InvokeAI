@@ -38,10 +38,12 @@ Dispatcher.set_current(dp)
 
 args = Args().parse_args()
 
-Globals.root = path.expanduser(args.root_dir or environ.get('INVOKEAI_ROOT') or path.abspath('.'))
+Globals.root = path.expanduser(
+    args.root_dir or environ.get("INVOKEAI_ROOT") or path.abspath(".")
+)
 
 print(f'>> InvokeAI runtime directory is "{Globals.root}"')
-conf = path.normpath(path.join(Globals.root,"configs/models.yaml"))
+conf = path.normpath(path.join(Globals.root, "configs/models.yaml"))
 
 # Initialize stable diffusion generator
 with open(conf) as f:
@@ -50,6 +52,7 @@ with open(conf) as f:
 sd = Generate(conf=conf, max_loaded_models=1)
 sd.iterations = DEFAULT_ITERATIONS
 sd.load_model()
+
 
 def make_step_callback(message: Message, total):
     def callback(img, step):
