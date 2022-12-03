@@ -129,6 +129,8 @@ def make_image_callback(message, status_message, s):
                     f"Steps: <code>{s['steps']}</code>\n"
                     f"Cfg Scale: <code>{s['scale']}</code>\n"
                     f"Sampler: <code>{s['sampler']}</code>\n"
+                    f"Altezza: <code>{s['height']}</code>\n"
+                    f"Larghezza: <code>{s['width']}</code>\n"
                     f"seed <code>{seed}</code>",
                     reply_markup=Buttons.generate_keyboard(),
                 )
@@ -159,6 +161,8 @@ async def generate_image(message: Message, prompt: str):
     current_settings = {
         "prompt": prompt,
         "model": sd.model_name,
+        "height": sd.height,
+        "width": sd.width,
         "steps": sd.steps,
         "scale": sd.cfg_scale,
         "sampler": sd.sampler_name,
@@ -220,10 +224,13 @@ async def send_settings(message: Message):
 @dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="🌄"))
 @dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="👣"))
 @dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="📏"))
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="↔"))
+@dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="↕"))
 @dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="🔮"))
 @dp.message_handler(IDFilter(user_id=OWNER_ID), Text(startswith="🪴"))
 async def message_settings(message: Message):
     char = message.text[0]
+    print(f"'{char}'")
     match char:
         case "👤":
             user_state["setting"] = char
@@ -232,15 +239,23 @@ async def message_settings(message: Message):
         case "🔢":
             user_state["setting"] = char
             keyboard = Buttons.iterations(sd.iterations)
-            text = "🔢 Immagini da generare"
+            text = "🔢 Seleziona quante immagini generare"
         case "👣":
             user_state["setting"] = char
             keyboard = Buttons.steps(sd.steps)
-            text = "👣 Steps"
+            text = "👣 Seleziona gli steps"
         case "📏":
             user_state["setting"] = char
             keyboard = Buttons.scale(sd.cfg_scale)
-            text = "📏 Cfg scale"
+            text = "📏 Seleziona il cfg scale"
+        case "↔":
+            user_state["setting"] = char
+            keyboard = Buttons.height_width(sd.width)
+            text = "↔ Seleziona la larghezza"
+        case "↕":
+            user_state["setting"] = char
+            keyboard = Buttons.height_width(sd.height)
+            text = "↕ Seleziona l'altezza"
         case "🔮":
             user_state["setting"] = char
             keyboard = Buttons.sampler(sd.sampler_name, SAMPLERS)
@@ -298,6 +313,18 @@ async def setting_handler(message: Message):
                 text = f"👣 Steps impostati a <b>{sd.steps}</b>"
             else:
                 text = "Valore per steps non valido"
+        case "↔":
+            if value.isnumeric():
+                sd.width = int(value)
+                text = f"↔ Larghezza impostata a <b>{sd.steps}</b>"
+            else:
+                text = "Valore per larghezza non valido"
+        case "↕":
+            if value.isnumeric():
+                sd.height = int(value)
+                text = f"↕ Altezza impostata a <b>{sd.steps}</b>"
+            else:
+                text = "Valore per altezza non valido"
         case "📏":
             try:
                 sd.cfg_scale = float(value)
