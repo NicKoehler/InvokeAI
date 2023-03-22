@@ -316,13 +316,13 @@ async def setting_handler(message: Message):
         case "↔":
             if value.isnumeric():
                 sd.width = int(value)
-                text = f"↔ Larghezza impostata a <b>{sd.steps}</b>"
+                text = f"↔ Larghezza impostata a <b>{sd.width}</b>"
             else:
                 text = "Valore per larghezza non valido"
         case "↕":
             if value.isnumeric():
                 sd.height = int(value)
-                text = f"↕ Altezza impostata a <b>{sd.steps}</b>"
+                text = f"↕ Altezza impostata a <b>{sd.height}</b>"
             else:
                 text = "Valore per altezza non valido"
         case "📏":
